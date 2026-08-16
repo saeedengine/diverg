@@ -50,48 +50,6 @@ Check the run logs — it should print either "No new divergence signal this
 run" or confirm it sent an alert. After that it runs automatically every 5
 minutes on its own.
 
-## Fixing the 5-minute timing (recommended)
-
-GitHub's built-in `schedule:` trigger is best-effort — at a 5-minute cadence
-it commonly drifts to running every 15–60+ minutes, especially around the
-top of the hour. The fix is to stop relying on GitHub's cron queue and
-instead have an outside scheduler call the GitHub API to fire the workflow
-on time. This workflow already listens for that (`workflow_dispatch:`); its
-own `schedule:` is now just an hourly safety net in case the outside pinger
-goes down.
-
-### 1. Create a scoped GitHub token
-
-1. GitHub → your photo (top right) → **Settings** → **Developer settings**
-   → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
-2. **Repository access**: select "Only select repositories" → choose this repo only.
-3. **Permissions** → **Repository permissions** → set **Actions** to
-   **Read and write**. Leave everything else as "No access."
-4. Set an expiration you're comfortable with, generate it, and copy the
-   token (starts with `github_pat_...`) — you won't see it again.
-
-Scoping it to just this repo, with only Actions access, means that even if
-this token ever leaked, it couldn't touch your other repos, code, or account.
-
-### 2. Create a free cron-job.org account
-
-1. Sign up at cron-job.org (free).
-2. Create a new cron job with:
-   - **URL**: `https://api.github.com/repos/<your-username>/<your-repo>/actions/workflows/monitor.yml/dispatches`
-   - **Method**: `POST`
-   - **Headers**:
-     - `Authorization: Bearer <your token from step 1>`
-     - `Accept: application/vnd.github+json`
-     - `Content-Type: application/json`
-   - **Body**: `{"ref":"main"}` (use `master` instead of `main` if that's your
-     repo's default branch)
-   - **Schedule**: every 5 minutes
-3. Save, then use the job's "Execute now" / test button once.
-4. Check your repo's **Actions** tab — a new run triggered by
-   "workflow_dispatch" should appear within seconds. That confirms it's wired
-   up correctly; from then on it fires every 5 minutes on cron-job.org's
-   infrastructure instead of GitHub's.
-
 ## Notes / tuning
 
 - `PIVOT_LOOKBACK` (default 3) controls how many bars on each side confirm a
