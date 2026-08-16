@@ -1,9 +1,15 @@
 name: BTC RSI Divergence Monitor
 
 on:
+  # Primary trigger: an external pinger (e.g. cron-job.org) calls the
+  # GitHub API every 5 minutes to fire workflow_dispatch, because GitHub's
+  # own `schedule:` queue is best-effort and drifts badly at 5-minute
+  # frequency. See README "Fixing the 5-minute timing" section.
+  workflow_dispatch: {}
+  # Safety net only: catches the (rare) case where the external pinger is
+  # itself down. Not the primary cadence.
   schedule:
-    - cron: '*/5 * * * *'
-  workflow_dispatch: {}   # lets you trigger a manual test run from the Actions tab
+    - cron: '7 * * * *'
 
 permissions:
   contents: write   # needed so the workflow can commit the updated state.json
