@@ -36,7 +36,7 @@ INTERVAL_MIN = 5          # candle size in minutes
 RSI_PERIOD = 14
 OVERBOUGHT = 70
 OVERSOLD = 30
-PIVOT_LOOKBACK = 6        # bars on each side required to confirm a swing pivot
+PIVOT_LOOKBACK = 3        # bars on each side required to confirm a swing pivot
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
 
 KRAKEN_URL = "https://api.kraken.com/0/public/OHLC"
