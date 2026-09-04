@@ -1,6 +1,21 @@
 {
-  "30min": {"last_alerted": {"bearish": null, "bullish": null}},
-  "1h": {"last_alerted": {"bearish": null, "bullish": null}},
-  "4h": {"last_alerted": {"bearish": null, "bullish": null}},
-  "last_run": null
+  "30min": {
+    "last_alerted": {
+      "bearish": null,
+      "bullish": null
+    }
+  },
+  "1h": {
+    "last_alerted": {
+      "bearish": null,
+      "bullish": null
+    }
+  },
+  "4h": {
+    "last_alerted": {
+      "bearish": null,
+      "bullish": null
+    }
+  },
+  "last_run": 1788557210
 }
