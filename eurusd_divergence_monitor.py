@@ -1,11 +1,11 @@
 """
-BTC Multi-Timeframe RSI Divergence Monitor
---------------------------------------------
-Checks BTC/USD on 30-minute, 1-hour, and 4-hour candles for regular RSI
+EUR/USD Multi-Timeframe RSI Divergence Monitor
+------------------------------------------------
+Checks EUR/USD on 30-minute, 1-hour, and 4-hour candles for regular RSI
 divergence, filtered to only fire when the RSI involved is overbought (>70)
 or oversold (<30), and sends a Telegram alert per timeframe when found.
 
-Divergence rule (same rule used throughout this project):
+Same divergence rule as the BTC monitor and the original gold backtest:
   BEARISH (sell):  2nd price high > 1st price high
                     AND 2nd RSI high <= 1st RSI high
                     AND at least one of the two RSI highs > OVERBOUGHT (70)
@@ -13,13 +13,13 @@ Divergence rule (same rule used throughout this project):
                     AND 2nd RSI low >= 1st RSI low
                     AND at least one of the two RSI lows < OVERSOLD (30)
 
-Data source: Kraken public OHLC API (no key required). Kraken's `interval`
-parameter is in minutes and natively supports 30, 60, and 240 — i.e. 30min,
-1h, and 4h candles directly, no resampling needed.
+Data source: Twelve Data (https://twelvedata.com) — free tier, needs an API
+key (TWELVE_DATA_API_KEY). Supports 30min/1h/4h forex intervals natively.
 
-State: a per-timeframe last-alerted pivot timestamp is stored in state.json
-and committed back to the repo by the GitHub Actions workflow, so the same
-divergence doesn't trigger a duplicate alert every run.
+Note: forex markets are closed on weekends (roughly Friday ~21:00 UTC to
+Sunday ~21:00 UTC). No special handling is needed for this — candles simply
+stop updating during that window, so there's nothing new to detect, and
+everything resumes normally when the market reopens.
 """
 
 import json
@@ -28,67 +28,67 @@ import sys
 import time
 import urllib.request
 import urllib.parse
+from datetime import datetime, timedelta, timezone
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-PAIR = "XBTUSD"  # Kraken symbol for BTC/USD
-
-# label -> Kraken interval in minutes
-TIMEFRAMES = {
-    "30min": 30,
-    "1h": 60,
-    "4h": 240,
-}
+SYMBOL = "EUR/USD"
+TIMEFRAMES = ["30min", "1h", "4h"]     # Twelve Data interval strings
+INTERVAL_MINUTES = {"30min": 30, "1h": 60, "4h": 240}
+OUTPUT_SIZE = 200
 
 RSI_PERIOD = 14
 OVERBOUGHT = 70
 OVERSOLD = 30
 PIVOT_LOOKBACK = 3        # <-- bars on each side required to confirm a swing pivot (edit this to change lookback)
 
-STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
-KRAKEN_URL = "https://api.kraken.com/0/public/OHLC"
+STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "eurusd_state.json")
+TWELVE_DATA_URL = "https://api.twelvedata.com/time_series"
 
 
 # ---------------------------------------------------------------------------
 # Data fetching
 # ---------------------------------------------------------------------------
-def fetch_candles(interval_minutes, pair=PAIR):
+def fetch_candles(interval, api_key):
     """Return a list of closed candles: [{time, open, high, low, close}]."""
-    params = urllib.parse.urlencode({"pair": pair, "interval": interval_minutes})
-    url = f"{KRAKEN_URL}?{params}"
+    params = urllib.parse.urlencode({
+        "symbol": SYMBOL,
+        "interval": interval,
+        "outputsize": OUTPUT_SIZE,
+        "timezone": "UTC",
+        "apikey": api_key,
+    })
+    url = f"{TWELVE_DATA_URL}?{params}"
     with urllib.request.urlopen(url, timeout=20) as resp:
         data = json.loads(resp.read().decode())
 
-    if data.get("error"):
-        raise RuntimeError(f"Kraken API error: {data['error']}")
-
-    result = data["result"]
-    key = next(k for k in result.keys() if k != "last")
-    raw = result[key]
+    if data.get("status") == "error":
+        raise RuntimeError(f"Twelve Data error ({interval}): {data.get('message')}")
 
     candles = [
         {
-            "time": int(row[0]),
-            "open": float(row[1]),
-            "high": float(row[2]),
-            "low": float(row[3]),
-            "close": float(row[4]),
+            "time": v["datetime"],  # "YYYY-MM-DD HH:MM:SS", UTC
+            "open": float(v["open"]),
+            "high": float(v["high"]),
+            "low": float(v["low"]),
+            "close": float(v["close"]),
         }
-        for row in raw
+        for v in data["values"]
     ]
+    candles.sort(key=lambda c: c["time"])  # ensure chronological order
 
-    # Kraken's last row is typically the still-forming candle. Drop it so we
-    # only evaluate signals on fully closed candles.
-    now = time.time()
-    if candles and candles[-1]["time"] + interval_minutes * 60 > now:
+    # Drop a still-forming candle so we only evaluate fully closed bars.
+    now = datetime.now(timezone.utc)
+    last_dt = datetime.strptime(candles[-1]["time"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    if last_dt + timedelta(minutes=INTERVAL_MINUTES[interval]) > now:
         candles = candles[:-1]
 
     return candles
 
 
 # ---------------------------------------------------------------------------
-# RSI (Wilder's smoothing, standard 14-period RSI)
+# RSI (Wilder's smoothing, standard 14-period RSI) — same as the BTC monitor
 # ---------------------------------------------------------------------------
 def compute_rsi(closes, period=RSI_PERIOD):
     n = len(closes)
@@ -116,14 +116,9 @@ def compute_rsi(closes, period=RSI_PERIOD):
 
 
 # ---------------------------------------------------------------------------
-# Pivot detection
+# Pivot + divergence detection — identical logic to the BTC monitor
 # ---------------------------------------------------------------------------
 def find_pivots(candles, rsi, lookback=PIVOT_LOOKBACK):
-    """
-    Return two lists of confirmed pivots: pivot_highs, pivot_lows.
-    A bar is a pivot high if its high is the max among `lookback` bars on
-    each side; pivot low is analogous for lows.
-    """
     pivot_highs = []
     pivot_lows = []
     n = len(candles)
@@ -144,9 +139,6 @@ def find_pivots(candles, rsi, lookback=PIVOT_LOOKBACK):
     return pivot_highs, pivot_lows
 
 
-# ---------------------------------------------------------------------------
-# Divergence detection
-# ---------------------------------------------------------------------------
 def detect_divergence(pivot_highs, pivot_lows):
     signals = []
 
@@ -196,11 +188,11 @@ def format_message(timeframe, signal, latest_price):
     kind = "BEARISH divergence (overbought)" if signal["type"] == "bearish" else "BULLISH divergence (oversold)"
     arrow = "price higher high, RSI lower high" if signal["type"] == "bearish" else "price lower low, RSI higher low"
     return (
-        f"BTC/USD {timeframe} — {kind}\n"
+        f"EUR/USD {timeframe} — {kind}\n"
         f"{arrow}\n"
-        f"Prior pivot: price {p1['price']:.2f}, RSI {p1['rsi']:.1f}\n"
-        f"Latest pivot: price {p2['price']:.2f}, RSI {p2['rsi']:.1f}\n"
-        f"Current price: {latest_price:.2f}"
+        f"Prior pivot: price {p1['price']:.5f}, RSI {p1['rsi']:.1f}\n"
+        f"Latest pivot: price {p2['price']:.5f}, RSI {p2['rsi']:.1f}\n"
+        f"Current price: {latest_price:.5f}"
     )
 
 
@@ -208,23 +200,24 @@ def format_message(timeframe, signal, latest_price):
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
-        print("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID env vars.", file=sys.stderr)
+    td_key = os.environ.get("TWELVE_DATA_API_KEY")
+    if not telegram_token or not chat_id or not td_key:
+        print("Missing TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, or TWELVE_DATA_API_KEY env vars.", file=sys.stderr)
         sys.exit(1)
 
     state = load_state()
 
-    for tf_label, tf_minutes in TIMEFRAMES.items():
+    for tf in TIMEFRAMES:
         try:
-            candles = fetch_candles(tf_minutes)
+            candles = fetch_candles(tf, td_key)
         except Exception as exc:
-            print(f"[{tf_label}] fetch failed: {exc}", file=sys.stderr)
+            print(f"[{tf}] fetch failed: {exc}", file=sys.stderr)
             continue
 
         if len(candles) < RSI_PERIOD + 2 * PIVOT_LOOKBACK + 2:
-            print(f"[{tf_label}] not enough candle history yet.")
+            print(f"[{tf}] not enough candle history yet.")
             continue
 
         closes = [c["close"] for c in candles]
@@ -233,21 +226,23 @@ def main():
         signals = detect_divergence(pivot_highs, pivot_lows)
 
         latest_price = closes[-1]
-        tf_state = state.setdefault(tf_label, {"last_alerted": {"bearish": None, "bullish": None}})
+        tf_state = state.setdefault(tf, {"last_alerted": {"bearish": None, "bullish": None}})
 
         sent_any = False
         for sig in signals:
             pivot_time = sig["pivot2"]["time"]
             if tf_state["last_alerted"].get(sig["type"]) == pivot_time:
                 continue  # already alerted for this exact pivot
-            msg = format_message(tf_label, sig, latest_price)
-            send_telegram(token, chat_id, msg)
+            msg = format_message(tf, sig, latest_price)
+            send_telegram(telegram_token, chat_id, msg)
             tf_state["last_alerted"][sig["type"]] = pivot_time
             sent_any = True
-            print(f"[{tf_label}] sent {sig['type']} alert for pivot at {pivot_time}")
+            print(f"[{tf}] sent {sig['type']} alert for pivot at {pivot_time}")
 
         if not sent_any:
-            print(f"[{tf_label}] no new divergence signal this run.")
+            print(f"[{tf}] no new divergence signal this run.")
+
+        time.sleep(1)  # stay well under Twelve Data's per-minute rate limit
 
     state["last_run"] = int(time.time())
     save_state(state)
