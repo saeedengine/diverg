@@ -1,18 +1,16 @@
-name: BTC RSI Divergence Monitor
+name: EUR/USD RSI Divergence Monitor
 
 on:
   # Primary trigger: an external pinger (e.g. cron-job.org) calling the
   # GitHub API to fire workflow_dispatch every 15 minutes is the most
-  # reliable way to run this on time — GitHub's own `schedule:` queue is
-  # best-effort and drifts badly at high frequency. See README.
-  # Optional for now: without an external pinger, this still runs via the
-  # hourly fallback below, just less promptly.
+  # reliable way to run this on time. Optional for now — without it, this
+  # still runs via the hourly fallback below, just less promptly.
   workflow_dispatch: {}
   schedule:
-    - cron: '7 * * * *'   # hourly safety net / fallback cadence
+    - cron: '22 * * * *'   # hourly safety net, offset from the BTC job
 
 permissions:
-  contents: write   # needed so the workflow can commit the updated state.json
+  contents: write
 
 jobs:
   check:
@@ -28,12 +26,13 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python btc_divergence_monitor.py
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+        run: python eurusd_divergence_monitor.py
 
       - name: Commit updated state
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add state.json
-          git diff --staged --quiet || git commit -m "Update state"
+          git add eurusd_state.json
+          git diff --staged --quiet || git commit -m "Update EUR/USD state"
           git push
