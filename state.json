@@ -8,7 +8,7 @@
   "1h": {
     "last_alerted": {
       "bearish": null,
-      "bullish": null
+      "bullish": 1789081200
     }
   },
   "4h": {
@@ -17,5 +17,5 @@
       "bullish": null
     }
   },
-  "last_run": 1789092941
+  "last_run": 1789096523
 }
