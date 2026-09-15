@@ -2,7 +2,7 @@
   "30min": {
     "last_alerted": {
       "bearish": null,
-      "bullish": null
+      "bullish": 1789497000
     }
   },
   "1h": {
@@ -17,5 +17,5 @@
       "bullish": 1789128000
     }
   },
-  "last_run": 1789495423
+  "last_run": 1789506744
 }
