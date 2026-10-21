@@ -1,3 +1,30 @@
 {
-  "last_run": null
+  "last_run": 1792583267,
+  "BTC/USD": {
+    "last_alerted": {}
+  },
+  "EUR/USD": {
+    "last_alerted": {}
+  },
+  "GBP/USD": {
+    "last_alerted": {}
+  },
+  "XAU/USD": {
+    "last_alerted": {}
+  },
+  "USD/CHF": {
+    "last_alerted": {}
+  },
+  "USD/CAD": {
+    "last_alerted": {}
+  },
+  "NZD/USD": {
+    "last_alerted": {}
+  },
+  "USD/JPY": {
+    "last_alerted": {}
+  },
+  "AUD/USD": {
+    "last_alerted": {}
+  }
 }
