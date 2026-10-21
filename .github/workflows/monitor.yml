@@ -1,0 +1,37 @@
+name: Daily RSI Divergence Monitor
+
+on:
+  workflow_dispatch: {}          # lets you run it manually from the Actions tab
+  schedule:
+    # Daily candles only change once a day (00:00 UTC), so 4 checks a day is plenty.
+    # Repeated checks are harmless: the state file prevents duplicate alerts.
+    - cron: '20 0,6,12,18 * * *'
+
+permissions:
+  contents: write   # lets the workflow commit the updated state.json
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run divergence check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+        run: python divergence_monitor.py
+
+      - name: Commit updated state
+        if: always()      # save state even if one symbol failed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          git diff --staged --quiet || git commit -m "Update state"
+          git push
