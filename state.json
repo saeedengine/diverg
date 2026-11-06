@@ -1,5 +1,5 @@
 {
-  "last_run": 1793908860,
+  "last_run": 1793948087,
   "BTC/USD": {
     "last_alerted": {}
   },
@@ -17,7 +17,8 @@
   },
   "USD/CAD": {
     "last_alerted": {
-      "bullish_double": "2026-10-30"
+      "bullish_double": "2026-10-30",
+      "bullish_triple": "2026-11-04"
     }
   },
   "NZD/USD": {
