@@ -1,7 +1,9 @@
 {
-  "last_run": 1794088559,
+  "last_run": 1794118169,
   "BTC/USD": {
-    "last_alerted": {}
+    "last_alerted": {
+      "bullish_double": "2026-11-06"
+    }
   },
   "EUR/USD": {
     "last_alerted": {}
