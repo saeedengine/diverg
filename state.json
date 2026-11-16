@@ -1,5 +1,5 @@
 {
-  "last_run": 1794768946,
+  "last_run": 1794811087,
   "BTC/USD": {
     "last_alerted": {
       "bullish_double": "2026-11-06"
@@ -12,7 +12,9 @@
     "last_alerted": {}
   },
   "XAU/USD": {
-    "last_alerted": {}
+    "last_alerted": {
+      "bullish_double": "2026-11-14"
+    }
   },
   "USD/CHF": {
     "last_alerted": {}
@@ -24,7 +26,9 @@
     }
   },
   "NZD/USD": {
-    "last_alerted": {}
+    "last_alerted": {
+      "bullish_double": "2026-11-14"
+    }
   },
   "USD/JPY": {
     "last_alerted": {}
